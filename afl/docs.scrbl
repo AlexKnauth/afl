@@ -7,6 +7,10 @@
 
 @title{afl}
 
+@;; example: @racket[(map @#,afl[(+ % 1)] '(1 2 3))]
+@(define-syntax-rule @afl[form ...]
+   @elem{@tt{#λ}@racket[form ...]})
+
 @section{#lang afl}
 
 @defmodulelang[afl]{
@@ -17,7 +21,7 @@ that adds @racketmodname[rackjure]-like anonymous function literals to a languag
 For example, @racket[@#,hash-lang[] @#,racketmodname[afl] @#,racketmodname[racket/base]]
 adds anonymous function literals to @racketmodname[racket/base], so that
 @racketmod[afl @#,racketmodname[racket/base]
-(map @#,elem{@tt{#λ}@racket[(+ % 1)]} '(1 2 3))]
+(map @#,afl[(+ % 1)] '(1 2 3))]
 produces @racket['(2 3 4)]
 }
 
