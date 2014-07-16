@@ -7,6 +7,7 @@ env:
 before_install:
 - git clone https://github.com/greghendershott/travis-racket.git
 - cat travis-racket/install-racket.sh | bash # pipe to bash not sh!
+- /usr/racket/bin/raco pkg config --set catalogs http://pkgs.racket-lang.org http://planet-compats.racket-lang.org
 
 install:
 
