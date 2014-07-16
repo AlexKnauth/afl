@@ -77,7 +77,7 @@ Examples:
 > @racket[(map @#,afl[(+ % %2)] '(1 2 3) '(1 2 3))]
 @racketresult['(2 4 6)]
 > @racket[(use-afl-readtable #:arg-str "_")]
-> @racket[(map @#,afl[(+ _ _2)] '(1 2 3) '(1 2 3))]
+> @racket[(map @#,afl[(+ _ @#,racketid[__2])] '(1 2 3) '(1 2 3))]
 @racketresult['(2 4 6)]
 }}
 
