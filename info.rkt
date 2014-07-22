@@ -2,5 +2,5 @@
 
 (define collection 'multi)
 
-(define deps '("at-exp-lib" "rackjure"))
+(define deps '("base" "at-exp-lib" "rackjure" "rackunit-lib" "racket-doc" "scribble-doc" "scribble-lib"))
 
