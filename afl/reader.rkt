@@ -36,6 +36,7 @@
          (for-meta 8 racket/base)
          (for-meta 9 racket/base)
          (for-meta 10 racket/base)
+         (for-meta 11 (only-in racket/base #%app make-rename-transformer syntax))
          )
 
 (module+ test
