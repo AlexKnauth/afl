@@ -1,3 +1,3 @@
 #lang info
 
-(define scribblings '(["docs/docs.scrbl" ()]))
+(define scribblings '(["docs/afl.scrbl" ()]))
