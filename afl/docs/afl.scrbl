@@ -12,6 +12,8 @@
 @(define-syntax-rule @afl[form ...]
    @elem{@tt{#λ}@racket[form ...]})
 
+source code: @url["https://github.com/AlexKnauth/afl"]
+
 @section{#lang afl}
 
 @defmodulelang[afl]{
