@@ -1,0 +1,17 @@
+#lang afl racket/base
+(module+ test
+  (require rackunit)
+  (check-equal? (map #λ(+ % 1) '(1 2 3))
+                '(2 3 4))
+  (check-equal? (map #λ(+ % %2) '(1 2 3) '(1 2 3))
+                '(2 4 6))
+  (check-equal? (#λ(apply list* % %&) 1 '(2 3))
+                '(1 2 3))
+  (check-equal? (#λ(* 1/2 %#:m (* %#:v %#:v)) #:m 2 #:v 1)
+                1)
+  (check-equal? (let ([x (#λ"I am x")])
+                  (#λx))
+                "I am x")
+  (check-equal? (#λ(begin (set! % "%") %1) "%1")
+                "%")
+  )
