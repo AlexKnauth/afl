@@ -1,10 +1,5 @@
-
-*.scrbl~
-
-*.rkt~
-
+*~
+compiled/
 *.html
-
 *.css
-
 *.js
