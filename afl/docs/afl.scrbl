@@ -26,6 +26,13 @@ adds anonymous function literals to @racketmodname[racket/base], so that
 @racketmod[afl @#,racketmodname[racket/base]
 (map @#,afl[(+ % 1)] '(1 2 3))]
 produces @racket['(2 3 4)]
+
+For @racketmodname[afl] language to work properly for a module, the module has
+to depend on @racketmodname[racket/base] in some way, although that does not
+mean it has to explicitly require it or that the language it uses has to provide
+anything from it.  It does mean that for instance
+@racket[@#,hash-lang[] @#,racketmodname[afl] @#,racketmodname[racket/kernel]]
+won't work properly.  
 }
 
 @section{afl/reader}
