@@ -114,12 +114,17 @@
   (parameterize ([current-arg-string arg-str])
     (define (string->id stx . strs)
       (datum->syntax stx (string->symbol (apply string-append strs)) stx))
-    (with-syntax ([args (parse-args stx #:arg-str arg-str)]
+    (with-syntax ([lambda ((make-syntax-introducer) #'lambda)]
+                  [define-syntax ((make-syntax-introducer) #'define-syntax)]
+                  [app ((make-syntax-introducer) #'#%app)]
+                  [make-rename-transformer ((make-syntax-introducer) #'make-rename-transformer)]
+                  [syntax2 ((make-syntax-introducer) #'syntax)]
+                  [args (parse-args stx #:arg-str arg-str)]
                   [% (string->id #'args arg-str)]
                   [%1 (string->id #'args arg-str "1")]
                   [body stx])
       #'(lambda args
-          (define-syntax % (make-rename-transformer #'%1))
+          (define-syntax % (app make-rename-transformer (syntax2 %1)))
           body))))
 
 (module+ test
