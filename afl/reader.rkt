@@ -79,11 +79,11 @@
 (module+ test
   (check-equal? (afl-read (open-input-string "#λ(+ % %2)"))
                 '(lambda (%1 %2)
-                   (define-syntax % (#%app make-rename-transformer #'%1))
+                   (define-syntax % (make-rename-transformer #'%1))
                    (+ % %2)))
   (check-equal? (afl-read (open-input-string "#λ(+ _ _2)") #:arg-str "_")
                 '(lambda (_1 _2)
-                   (define-syntax _ (#%app make-rename-transformer #'_1))
+                   (define-syntax _ (make-rename-transformer #'_1))
                    (+ _ _2)))
   )
 
@@ -114,42 +114,40 @@
   (parameterize ([current-arg-string arg-str])
     (define (string->id stx . strs)
       (datum->syntax stx (string->symbol (apply string-append strs)) stx))
-    (with-syntax ([lambda ((make-syntax-introducer) #'lambda)]
-                  [define-syntax ((make-syntax-introducer) #'define-syntax)]
-                  [app ((make-syntax-introducer) #'#%app)]
-                  [make-rename-transformer ((make-syntax-introducer) #'make-rename-transformer)]
-                  [syntax2 ((make-syntax-introducer) #'syntax)]
-                  [args (parse-args stx #:arg-str arg-str)]
-                  [% (string->id #'args arg-str)]
-                  [%1 (string->id #'args arg-str "1")]
-                  [body stx])
-      #'(lambda args
-          (define-syntax % (app make-rename-transformer (syntax2 %1)))
-          body))))
+    (define intro (make-syntax-introducer))
+    (define stx* (intro stx))
+    (with-syntax ([args (parse-args stx* #:arg-str arg-str)]
+                  [% (string->id stx* arg-str)]
+                  [%1 (string->id stx* arg-str "1")]
+                  [body stx*])
+      (intro
+       #'(lambda args
+           (define-syntax % (make-rename-transformer #'%1))
+           body)))))
 
 (module+ test
   ;; These test `parse`. See test.rkt for tests of readtable use per se.
   (define chk (compose1 syntax->datum parse))
   (check-equal? (chk #'(+))
                 '(lambda ()
-                  (define-syntax % (#%app make-rename-transformer #'%1))
+                  (define-syntax % (make-rename-transformer #'%1))
                   (+)))
   (check-equal? (chk #'(+ 2 %1 %1))
                 '(lambda (%1)
-                  (define-syntax % (#%app make-rename-transformer #'%1))
+                  (define-syntax % (make-rename-transformer #'%1))
                   (+ 2 %1 %1)))
   (check-equal? (chk #'(+ 2 %3 %2 %1))
                 '(lambda (%1 %2 %3)
-                  (define-syntax % (#%app make-rename-transformer #'%1))
+                  (define-syntax % (make-rename-transformer #'%1))
                   (+ 2 %3 %2 %1)))
   (check-equal? (chk #'(apply list* % %&))
                 '(lambda (%1 . %&)
-                  (define-syntax % (#%app make-rename-transformer #'%1))
+                  (define-syntax % (make-rename-transformer #'%1))
                   (apply list* % %&)))
   (check-equal? (parameterize ([current-arg-string "_"])
                   (chk #'(apply list* _ _&)))
                 '(lambda (_1 . _&)
-                  (define-syntax _ (#%app make-rename-transformer #'_1))
+                  (define-syntax _ (make-rename-transformer #'_1))
                   (apply list* _ _&))))
 
 ;; parse-args : Stx -> KW-Formals-Stx
