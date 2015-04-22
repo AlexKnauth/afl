@@ -121,9 +121,10 @@
                   [%1 (string->id stx* arg-str "1")]
                   [body stx*])
       (intro
-       #'(lambda args
+       (syntax/loc stx
+         (lambda args
            (define-syntax % (make-rename-transformer #'%1))
-           body)))))
+           body))))))
 
 (module+ test
   ;; These test `parse`. See test.rkt for tests of readtable use per se.
