@@ -13,8 +13,9 @@
 
 (require racket/match
          rackjure/threading
-         (only-in racket/port input-port-append)
-         (only-in racket/list remove-duplicates append*)
+         racket/port
+         racket/list
+         syntax/srcloc
          (for-meta -10 racket/base)
          (for-meta -9 racket/base)
          (for-meta -8 racket/base)
@@ -89,7 +90,7 @@
 
 
 (define ((make-reader-proc [orig-rt (current-readtable)] #:arg-str [arg-str (current-arg-string)])
-         char in source line column pos)
+         char in src ln col pos)
   (parameterize ([current-arg-string arg-str])
     (define (unget-normal-read-syntax str src in)
       (define rt (current-readtable))
@@ -99,32 +100,54 @@
       (and (equal? str (peek-string (string-length str) 0 in))
            (read-string (string-length str) in)))
     (cond [(char=? char #\l)
-           (cond [(peek/read? "ambda" in) (parse (read-syntax source in))]
-                 [else (unget-normal-read-syntax "#l" source in)])]
+           (cond [(peek/read? "ambda" in)
+                  (define stx (read-syntax src in))
+                  (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+                 [else (unget-normal-read-syntax "#l" src in)])]
           [(char=? char #\f)
-           (cond [(peek/read? "n" in) (parse (read-syntax source in))]
-                 [(peek/read? "unction" in) (parse (read-syntax source in))]
-                 [else (unget-normal-read-syntax "#f" source in)])]
-          [(char=? char #\λ) (parse (read-syntax source in))]
+           (cond [(peek/read? "n" in)
+                  (define stx (read-syntax src in))
+                  (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+                 [(peek/read? "unction" in)
+                  (define stx (read-syntax src in))
+                  (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+                 [else (unget-normal-read-syntax "#f" src in)])]
+          [(char=? char #\λ)
+           (define stx (read-syntax src in))
+           (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
           ;[else (unget-normal-read-syntax (string #\# char) source in)]
-          [else (parse (read-syntax source in))] ;single letter e.g. #λ
+          [else ;single letter e.g. #λ
+           (define stx (read-syntax src in))
+           (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
           )))
 
-(define (parse stx #:arg-str [arg-str (current-arg-string)])
+(define (parse stx #:loc [loc stx] #:arg-str [arg-str (current-arg-string)])
   (parameterize ([current-arg-string arg-str])
     (define (string->id stx . strs)
       (datum->syntax stx (string->symbol (apply string-append strs)) stx))
     (define intro (make-syntax-introducer))
     (define stx* (intro stx))
-    (with-syntax ([args (parse-args stx* #:arg-str arg-str)]
+    (match-define (srcloc src ln col pos spn) (build-source-location loc))
+    (define stx-pos (syntax-position stx*))
+    (define loc-stx (build-source-location-syntax loc))
+    (define λ-loc
+      (update-source-location loc-stx
+        #:column (and col (+ col 1))
+        #:position (and pos (+ pos 1))
+        #:span (and stx-pos pos (max 0 (- stx-pos pos 1)))))
+    (with-syntax ([lambda (orig (syntax/loc λ-loc lambda))]
+                  [args (parse-args stx* #:arg-str arg-str)]
                   [% (string->id stx* arg-str)]
                   [%1 (string->id stx* arg-str "1")]
                   [body stx*])
       (intro
-       (syntax/loc stx
+       (syntax/loc loc-stx
          (lambda args
            (define-syntax % (make-rename-transformer #'%1))
            body))))))
+
+(define (orig stx)
+  (syntax-property stx 'original-for-check-syntax #t))
 
 (module+ test
   ;; These test `parse`. See test.rkt for tests of readtable use per se.
