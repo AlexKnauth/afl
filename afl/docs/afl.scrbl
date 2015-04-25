@@ -8,9 +8,9 @@
 
 @title{afl}
 
-@;; example: @racket[(map @#,afl[(+ % 1)] '(1 2 3))]
-@(define-syntax-rule @afl[form ...]
-   @elem{@tt{#λ}@racket[form ...]})
+@;; example: @afl-code{(map #λ(+ % 1) '(1 2 3))}
+@(define-syntax-rule @afl-code[stuff ...]
+   @code[#:lang "afl racket" stuff ...])
 
 source code: @url["https://github.com/AlexKnauth/afl"]
 
@@ -23,8 +23,10 @@ that adds @racketmodname[rackjure]-like anonymous function literals to a languag
 
 For example, @racket[@#,hash-lang[] @#,racketmodname[afl] @#,racketmodname[racket/base]]
 adds anonymous function literals to @racketmodname[racket/base], so that
-@racketmod[afl @#,racketmodname[racket/base]
-(map @#,afl[(+ % 1)] '(1 2 3))]
+@codeblock{
+#lang afl racket/base
+(map #λ(+ % 1) '(1 2 3))
+}
 produces @racket['(2 3 4)]
 
 For the @racketmodname[afl] language to work properly for a module, the module
@@ -81,12 +83,12 @@ This is mostly useful for the REPL.
 @verbatim{
 Examples:
 
-> @racket[(require afl/reader)]
-> @racket[(use-afl-readtable)]
-> @racket[(map @#,afl[(+ % %2)] '(1 2 3) '(1 2 3))]
+> @afl-code{(require afl/reader)}
+> @afl-code{(use-afl-readtable)}
+> @afl-code{(map #λ(+ % %2) '(1 2 3) '(1 2 3))}
 @racketresult['(2 4 6)]
-> @racket[(use-afl-readtable #:arg-str "_")]
-> @racket[(map @#,afl[(+ _ @#,racketid[__2])] '(1 2 3) '(1 2 3))]
+> @afl-code{(use-afl-readtable #:arg-str "_")}
+> @afl-code{(map #λ(+ _ _2) '(1 2 3) '(1 2 3))}
 @racketresult['(2 4 6)]
 }}
 
