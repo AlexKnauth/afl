@@ -14,7 +14,11 @@
                 "I am x")
   (check-equal? (#λ(begin (set! % "%") %1) "%1")
                 "%")
-  (check-equal? (let ([lambda "not lambda"] [define-syntax "not define-syntax"])
-                  (#λ% 3))
-                3)
+  (check-equal? (let ([lambda "not lambda"]
+                      [define-syntax "not define-syntax"]
+                      [make-rename-transformer "not"]
+                      [syntax "not"])
+                  (let-syntax ([#%app (syntax-rules () [(app f x) (f 4)])])
+                    (#λ% 3)))
+                4)
   )

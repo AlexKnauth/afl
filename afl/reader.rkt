@@ -16,32 +16,32 @@
          racket/port
          racket/list
          syntax/srcloc
-         (for-meta -10 racket/base)
-         (for-meta -9 racket/base)
-         (for-meta -8 racket/base)
-         (for-meta -7 racket/base)
-         (for-meta -6 racket/base)
-         (for-meta -5 racket/base)
-         (for-meta -4 racket/base)
-         (for-meta -3 racket/base)
-         (for-meta -2 racket/base)
-         (for-meta -1 racket/base)
-         (for-meta 0 racket/base)
-         (for-meta 1 racket/base)
-         (for-meta 2 racket/base)
-         (for-meta 3 racket/base)
-         (for-meta 4 racket/base)
-         (for-meta 5 racket/base)
-         (for-meta 6 racket/base)
-         (for-meta 7 racket/base)
-         (for-meta 8 racket/base)
-         (for-meta 9 racket/base)
-         (for-meta 10 racket/base)
-         (for-meta 11 (only-in racket/base #%app make-rename-transformer syntax))
-         )
+         (for-syntax racket/base
+                     racket/list
+                     ))
 
 (module+ test
   (require rackunit))
+
+(define-syntax (define-unbindable-ids stx)
+  (syntax-case stx ()
+    [(_ [name id] ...)
+     (with-syntax ([(gen-id ...)
+                    (for/list ([id (in-list (syntax->list #'(id ...)))])
+                      (string->uninterned-symbol (symbol->string (syntax-e id))))]
+                   [(n ...) (range -10 11)])
+       #`(begin
+           (require (for-meta n (only-in racket/base [id gen-id] ...))
+                    ...)
+           (define name (quote-syntax gen-id))
+           ...))]))
+
+(define-unbindable-ids
+  [lambda-id lambda]
+  [define-syntax-id define-syntax]
+  [app-id #%app]
+  [make-rename-transformer-id make-rename-transformer]
+  [syntax-id syntax])
 
 (define (afl-read [in (current-input-port)] #:arg-str [arg-str (current-arg-string)])
   (define orig-readtable (current-readtable))
@@ -78,13 +78,15 @@
 
 
 (module+ test
-  (check-equal? (afl-read (open-input-string "#λ(+ % %2)"))
+  (define-check (check-thing= a b)
+    (check-equal? (format "~s" a) (format "~s" b)))
+  (check-thing= (afl-read (open-input-string "#λ(+ % %2)"))
                 '(lambda (%1 %2)
-                   (define-syntax % (make-rename-transformer #'%1))
+                   (define-syntax % (#%app make-rename-transformer #'%1))
                    (+ % %2)))
-  (check-equal? (afl-read (open-input-string "#λ(+ _ _2)") #:arg-str "_")
+  (check-thing= (afl-read (open-input-string "#λ(+ _ _2)") #:arg-str "_")
                 '(lambda (_1 _2)
-                   (define-syntax _ (make-rename-transformer #'_1))
+                   (define-syntax _ (#%app make-rename-transformer #'_1))
                    (+ _ _2)))
   )
 
@@ -125,7 +127,7 @@
   (parameterize ([current-arg-string arg-str])
     (define (string->id stx . strs)
       (datum->syntax stx (string->symbol (apply string-append strs)) stx))
-    (define intro (make-syntax-introducer))
+    (define intro (λ (x) x) #;(make-syntax-introducer))
     (define stx* (intro stx))
     (match-define (srcloc src ln col pos spn) (build-source-location loc))
     (define stx-pos (syntax-position stx*))
@@ -135,7 +137,11 @@
         #:column (and col (+ col 1))
         #:position (and pos (+ pos 1))
         #:span (and stx-pos pos (max 0 (- stx-pos pos 1)))))
-    (with-syntax ([lambda (orig (syntax/loc λ-loc lambda))]
+    (with-syntax ([lambda (orig (quasisyntax/loc λ-loc #,lambda-id))]
+                  [define-syntax define-syntax-id]
+                  [app app-id]
+                  [make-rename-transformer make-rename-transformer-id]
+                  [syntax syntax-id]
                   [args (parse-args stx* #:arg-str arg-str)]
                   [% (string->id stx* arg-str)]
                   [%1 (string->id stx* arg-str "1")]
@@ -143,7 +149,7 @@
       (intro
        (syntax/loc loc-stx
          (lambda args
-           (define-syntax % (make-rename-transformer #'%1))
+           (define-syntax % (app make-rename-transformer #'%1))
            body))))))
 
 (define (orig stx)
@@ -152,26 +158,26 @@
 (module+ test
   ;; These test `parse`. See test.rkt for tests of readtable use per se.
   (define chk (compose1 syntax->datum parse))
-  (check-equal? (chk #'(+))
+  (check-thing= (chk #'(+))
                 '(lambda ()
-                  (define-syntax % (make-rename-transformer #'%1))
+                  (define-syntax % (#%app make-rename-transformer #'%1))
                   (+)))
-  (check-equal? (chk #'(+ 2 %1 %1))
+  (check-thing= (chk #'(+ 2 %1 %1))
                 '(lambda (%1)
-                  (define-syntax % (make-rename-transformer #'%1))
+                  (define-syntax % (#%app make-rename-transformer #'%1))
                   (+ 2 %1 %1)))
-  (check-equal? (chk #'(+ 2 %3 %2 %1))
+  (check-thing= (chk #'(+ 2 %3 %2 %1))
                 '(lambda (%1 %2 %3)
-                  (define-syntax % (make-rename-transformer #'%1))
+                  (define-syntax % (#%app make-rename-transformer #'%1))
                   (+ 2 %3 %2 %1)))
-  (check-equal? (chk #'(apply list* % %&))
+  (check-thing= (chk #'(apply list* % %&))
                 '(lambda (%1 . %&)
-                  (define-syntax % (make-rename-transformer #'%1))
+                  (define-syntax % (#%app make-rename-transformer #'%1))
                   (apply list* % %&)))
-  (check-equal? (parameterize ([current-arg-string "_"])
+  (check-thing= (parameterize ([current-arg-string "_"])
                   (chk #'(apply list* _ _&)))
                 '(lambda (_1 . _&)
-                  (define-syntax _ (make-rename-transformer #'_1))
+                  (define-syntax _ (#%app make-rename-transformer #'_1))
                   (apply list* _ _&))))
 
 ;; parse-args : Stx -> KW-Formals-Stx
