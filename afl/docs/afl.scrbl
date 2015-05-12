@@ -1,6 +1,7 @@
 #lang scribble/manual
 
 @(require scribble/eval
+          scribble-code-examples
           (for-label (except-in racket/base
                                 read read-syntax)
                      (except-in afl/reader
@@ -24,10 +25,11 @@ that adds @racketmodname[rackjure]-like anonymous function literals to a languag
 For example, @racket[@#,hash-lang[] @#,racketmodname[afl] @#,racketmodname[racket/base]]
 adds anonymous function literals to @racketmodname[racket/base], so that
 @codeblock{
-#lang afl racket/base
+#lang afl racket/base}
+@code-examples[#:lang "afl racket/base" #:context #'here]|{
 (map #λ(+ % 1) '(1 2 3))
-}
-produces @racket['(2 3 4)]
+(map #λ(+ % %2) '(1 2 3) '(1 2 3))
+}|
 
 For the @racketmodname[afl] language to work properly for a module, the module
 has to depend on @racketmodname[racket/base] in some way, although that does not
