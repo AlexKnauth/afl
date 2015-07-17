@@ -27,7 +27,6 @@ install:
 before_script:
 
 script:
- - raco pkg install --deps search-auto git://github.com/greghendershott/rackjure
  - raco pkg install --deps search-auto --link afl
  - raco test -x -p afl
 
