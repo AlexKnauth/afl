@@ -41,26 +41,32 @@
          )
 
 (module+ test
-  (require rackunit))
+  (require rackunit racket/function))
 
 (define (afl-read [in (current-input-port)] #:arg-str [arg-str (current-arg-string)])
-  (define orig-readtable (current-readtable))
-  (parameterize ([current-arg-string arg-str]
-                 [current-readtable (make-afl-readtable orig-readtable #:arg-str arg-str)])
-    (read in)))
+  (parameterize ([current-arg-string arg-str])
+    ((wrap-reader read) in)))
 
 (define (afl-read-syntax [src (object-name (current-input-port))] [in (current-input-port)]
                          #:arg-str [arg-str (current-arg-string)])
-  (define orig-readtable (current-readtable))
-  (parameterize ([current-arg-string arg-str]
-                 [current-readtable (make-afl-readtable orig-readtable #:arg-str arg-str)])
-    (read-syntax src in)))
+  (parameterize ([current-arg-string arg-str])
+    ((wrap-reader read-syntax) src in)))
+
+(define current-afl-introduce
+  (make-parameter
+   (lambda (stx)
+     (error 'current-afl-introduce "must be used within the afl reader"))))
 
 (define (wrap-reader p)
   (lambda args
     (define orig-readtable (current-readtable))
-    (parameterize ([current-readtable (make-afl-readtable orig-readtable)])
-      (apply p args))))
+    (define intro (make-syntax-introducer))
+    (parameterize ([current-readtable (make-afl-readtable orig-readtable)]
+                   [current-afl-introduce intro])
+      (define stx (apply p args))
+      (if (syntax? stx)
+          (intro stx)
+          stx))))
 
 (define (make-afl-readtable [orig-rt (current-readtable)] #:arg-str [arg-str (current-arg-string)])
   (define reader-proc (make-reader-proc orig-rt #:arg-str arg-str))
@@ -125,7 +131,7 @@
   (parameterize ([current-arg-string arg-str])
     (define (string->id stx . strs)
       (datum->syntax stx (string->symbol (apply string-append strs)) stx))
-    (define intro (make-syntax-introducer))
+    (define intro (current-afl-introduce))
     (define stx* (intro stx))
     (match-define (srcloc src ln col pos spn) (build-source-location loc))
     (define stx-pos (syntax-position stx*))
@@ -151,7 +157,9 @@
 
 (module+ test
   ;; These test `parse`. See test.rkt for tests of readtable use per se.
-  (define chk (compose1 syntax->datum parse))
+  (define (chk stx)
+    (parameterize ([current-afl-introduce identity])
+      (syntax->datum (parse stx))))
   (check-equal? (chk #'(+))
                 '(lambda ()
                   (define-syntax % (make-rename-transformer #'%1))
