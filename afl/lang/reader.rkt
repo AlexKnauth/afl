@@ -1,6 +1,6 @@
 (module reader racket/base
   (require syntax/module-reader
-           (only-in "../reader.rkt" make-afl-readtable wrap-reader))
+           (only-in "../reader.rkt" wrap-reader))
   
   (provide (rename-out [afl-read read]
                        [afl-read-syntax read-syntax]

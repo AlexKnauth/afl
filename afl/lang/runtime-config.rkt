@@ -2,8 +2,8 @@
 
 (provide configure)
 
-(require (only-in afl/reader make-afl-readtable))
+(require (only-in afl/reader use-afl-readtable))
 
 (define (configure data)
-  (current-readtable (make-afl-readtable)))
+  (use-afl-readtable))
 

@@ -15,7 +15,9 @@
          rackjure/threading
          racket/port
          racket/list
+         racket/function
          syntax/srcloc
+         hygienic-reader-extension/extend-reader
          (for-meta -10 racket/base)
          (for-meta -9 racket/base)
          (for-meta -8 racket/base)
@@ -41,7 +43,7 @@
          )
 
 (module+ test
-  (require rackunit racket/function))
+  (require rackunit))
 
 (define (afl-read [in (current-input-port)] #:arg-str [arg-str (current-arg-string)])
   (parameterize ([current-arg-string arg-str])
@@ -52,24 +54,13 @@
   (parameterize ([current-arg-string arg-str])
     ((wrap-reader read-syntax) src in)))
 
-(define current-afl-introduce
-  (make-parameter
-   (lambda (stx)
-     (error 'current-afl-introduce "must be used within the afl reader"))))
-
 (define (wrap-reader p)
-  (lambda args
-    (define orig-readtable (current-readtable))
-    (define intro (make-syntax-introducer))
-    (parameterize ([current-readtable (make-afl-readtable orig-readtable)]
-                   [current-afl-introduce intro])
-      (define stx (apply p args))
-      (if (syntax? stx)
-          (intro stx)
-          stx))))
+  (extend-reader p make-afl-readtable))
 
-(define (make-afl-readtable [orig-rt (current-readtable)] #:arg-str [arg-str (current-arg-string)])
-  (define reader-proc (make-reader-proc orig-rt #:arg-str arg-str))
+(define (make-afl-readtable [orig-rt (current-readtable)]
+                            #:outer-scope outer-scope
+                            #:arg-str [arg-str (current-arg-string)])
+  (define reader-proc (make-reader-proc orig-rt outer-scope #:arg-str arg-str))
   (let* ([rt orig-rt]
          [rt (make-readtable rt #\λ 'dispatch-macro reader-proc)]
          [rt (make-readtable rt #\f 'dispatch-macro reader-proc)]
@@ -78,7 +69,7 @@
 
 (define (use-afl-readtable [orig-rt (current-readtable)] #:arg-str [arg-str (current-arg-string)])
   (port-count-lines! (current-input-port))
-  (current-readtable (make-afl-readtable orig-rt #:arg-str arg-str)))
+  (current-readtable (make-afl-readtable orig-rt #:outer-scope identity #:arg-str arg-str)))
 
 (define current-arg-string (make-parameter "%"))
 
@@ -95,7 +86,7 @@
   )
 
 
-(define ((make-reader-proc [orig-rt (current-readtable)] #:arg-str [arg-str (current-arg-string)])
+(define ((make-reader-proc orig-rt outer-scope #:arg-str [arg-str (current-arg-string)])
          char in src ln col pos)
   (parameterize ([current-arg-string arg-str])
     (define (unget-normal-read-syntax str src in)
@@ -108,49 +99,55 @@
     (cond [(char=? char #\l)
            (cond [(peek/read? "ambda" in)
                   (define stx (read-syntax src in))
-                  (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+                  (parse stx outer-scope
+                         #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
                  [else (unget-normal-read-syntax "#l" src in)])]
           [(char=? char #\f)
            (cond [(peek/read? "n" in)
                   (define stx (read-syntax src in))
-                  (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+                  (parse stx outer-scope
+                         #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
                  [(peek/read? "unction" in)
                   (define stx (read-syntax src in))
-                  (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+                  (parse stx outer-scope
+                         #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
                  [else (unget-normal-read-syntax "#f" src in)])]
           [(char=? char #\λ)
            (define stx (read-syntax src in))
-           (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+           (parse stx outer-scope
+                  #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
           ;[else (unget-normal-read-syntax (string #\# char) source in)]
           [else ;single letter e.g. #λ
            (define stx (read-syntax src in))
-           (parse stx #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
+           (parse stx outer-scope
+                  #:loc (srcloc src ln col pos (- (source-location-end stx) pos)))]
           )))
 
-(define (parse stx #:loc [loc stx] #:arg-str [arg-str (current-arg-string)])
+(define (parse stx outer-scope #:loc [loc stx] #:arg-str [arg-str (current-arg-string)])
   (parameterize ([current-arg-string arg-str])
     (define (string->id stx . strs)
       (datum->syntax stx (string->symbol (apply string-append strs)) stx))
-    (define intro (current-afl-introduce))
-    (define stx* (intro stx))
     (match-define (srcloc src ln col pos spn) (build-source-location loc))
-    (define stx-pos (syntax-position stx*))
+    (define stx-pos (syntax-position stx))
     (define loc-stx (build-source-location-syntax loc))
     (define λ-loc
       (update-source-location loc-stx
         #:column (and col (+ col 1))
         #:position (and pos (+ pos 1))
         #:span (and stx-pos pos (max 0 (- stx-pos pos 1)))))
-    (with-syntax ([lambda (orig (syntax/loc λ-loc lambda))]
-                  [args (parse-args stx* #:arg-str arg-str)]
-                  [% (string->id stx* arg-str)]
-                  [%1 (string->id stx* arg-str "1")]
-                  [body stx*])
-      (intro
-       (syntax/loc loc-stx
-         (lambda args
-           (define-syntax % (make-rename-transformer #'%1))
-           body))))))
+    (hygienic-app
+     #:outer-scope outer-scope
+     (lambda (stx*)
+       (with-syntax ([lambda (orig (syntax/loc λ-loc lambda))]
+                     [args (parse-args stx* #:arg-str arg-str)]
+                     [% (string->id stx* arg-str)]
+                     [%1 (string->id stx* arg-str "1")]
+                     [body stx*])
+         (syntax/loc loc-stx
+           (lambda args
+             (define-syntax % (make-rename-transformer #'%1))
+             body))))
+     stx)))
 
 (define (orig stx)
   (syntax-property stx 'original-for-check-syntax #t))
@@ -158,8 +155,7 @@
 (module+ test
   ;; These test `parse`. See test.rkt for tests of readtable use per se.
   (define (chk stx)
-    (parameterize ([current-afl-introduce identity])
-      (syntax->datum (parse stx))))
+    (syntax->datum (parse stx identity)))
   (check-equal? (chk #'(+))
                 '(lambda ()
                   (define-syntax % (make-rename-transformer #'%1))
