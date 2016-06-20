@@ -67,8 +67,13 @@ The @racket[arg-str] argument lets you specify something else to use as a placeh
 }
 
 @defproc[(make-afl-readtable [orig-readtable readtable? (current-readtable)]
+                             [#:outer-scope outer-scope (-> syntax? syntax?)]
                              [#:arg-str arg-str string? (current-arg-string)]) readtable?]{
 makes an @racketmodname[afl] readtable based on @racket[orig-readtable].
+
+The @racket[outer-scope] argument should be a function that introduce scopes to preserve hygiene,
+normally produced by @racket[make-syntax-introducer] and similar functions. For versions of racket
+that support it, these should generally be specified as use-site scopes.
 
 The @racket[arg-str] argument lets you specify something else to use as a placeholder instead of
 @racket[%], just like for @racket[afl-read].
