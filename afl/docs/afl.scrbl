@@ -18,7 +18,7 @@ source code: @url["https://github.com/AlexKnauth/afl"]
 @section{#lang afl}
 
 @defmodulelang[afl]{
-The @racketmodname[afl] language is a meta-language like @racketmodname[at-exp]
+The @racketmodname[afl] language is a lang-extension like @racketmodname[at-exp]
 that adds @racketmodname[rackjure]-like anonymous function literals to a language.  
 @margin-note{see @secref["func-lit" #:doc '(lib "rackjure/rackjure.scrbl")]}
 
