@@ -1,42 +1,18 @@
-(module reader racket/base
-  (require syntax/module-reader
-           (only-in "../reader.rkt" wrap-reader))
-  
-  (provide (rename-out [afl-read read]
-                       [afl-read-syntax read-syntax]
-                       [afl-get-info get-info]))
-  
-  (define-values (afl-read afl-read-syntax afl-get-info)
-    (make-meta-reader
-     'afl
-     "language path"
-     (lambda (bstr)
-       (let* ([str (bytes->string/latin-1 bstr)]
-              [sym (string->symbol str)])
-         (and (module-path? sym)
-              (vector
-               ;; try submod first:
-               `(submod ,sym reader)
-               ;; fall back to /lang/reader:
-               (string->symbol (string-append str "/lang/reader"))))))
-     wrap-reader
-     (lambda (orig-read-syntax)
-       (define read-syntax (wrap-reader orig-read-syntax))
-       (lambda args
-         (define stx (apply read-syntax args))
-         (define old-prop (syntax-property stx 'module-language))
-         (define new-prop `#(afl/lang/language-info get-language-info ,old-prop))
-         (syntax-property stx 'module-language new-prop)))
-     (lambda (proc)
-       (lambda (key defval)
-         (define (fallback) (if proc (proc key defval) defval))
-         (define (try-dynamic-require mod export)
-           (or (with-handlers ([exn:fail? (λ (x) #f)])
-                 (dynamic-require mod export))
-               (fallback)))
-         (case key
-           [(color-lexer)
-            (try-dynamic-require 'syntax-color/scribble-lexer 'scribble-lexer)]
-           [(definitions-text-surrogate)
-            'scribble/private/indentation]
-           [else (fallback)]))))))
+#lang lang-extension
+#:lang-extension afl make-afl-lang-reader
+#:lang-reader afl-lang
+(require lang-reader/lang-reader
+         (only-in "../reader.rkt" wrap-reader))
+
+(define (make-afl-lang-reader lang-reader)
+  (define/lang-reader [-read -read-syntax -get-info] lang-reader)
+  (make-lang-reader
+   (wrap-reader -read)
+   (let ([read-syntax (wrap-reader -read-syntax)])
+     (lambda args
+       (define stx (apply read-syntax args))
+       (define old-prop (syntax-property stx 'module-language))
+       (define new-prop `#(afl/lang/language-info get-language-info ,old-prop))
+       (syntax-property stx 'module-language new-prop)))
+   -get-info))
+
