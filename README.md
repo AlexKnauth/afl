@@ -13,12 +13,12 @@ Example:
 
 Comparison with similar packages / alternatives:
 
-| Package                                                            | Example                           | Multi-Args               |
-| ------------------------------------------------------------------ | --------------------------------- | ------------------------ |
-| [afl](https://docs.racket-lang.org/afl/index.html)                 | `(map #λ(+ % 1) (list 1 2 3))`    | `%1`, `%2` etc.          |
-| [aful](https://docs.racket-lang.org/aful/index.html)               | `(map #λ(+ % 1) (list 1 2 3))`    | `%1`, `%2` etc.          |
-| [fancy-app](https://docs.racket-lang.org/fancy-app/index.html)     | `(map (+ _ 1) (list 1 2 3))`      | `_`, `_` in same order   |
-| [curly-fn](https://docs.racket-lang.org/curly-fn/index.html)       | `(map #{+ % 1} (list 1 2 3))`     | `%1`, `%2` etc.          |
-| [rackjure](https://docs.racket-lang.org/rackjure/index.html)       | `(map #λ(+ % 1) (list 1 2 3))`    | `%1`, `%2` etc.          |
-| [srfi/26](https://docs.racket-lang.org/srfi/srfi-std/srfi-26.html) | `(map (cut + <> 1) (list 1 2 3))` | `<>`, `<>` in same order |
+| Package                                                            | Example                           | Multi-Args               | Holes in Sub-exprs?
+| ------------------------------------------------------------------ | --------------------------------- | ------------------------ | ----------------------
+| [afl](https://docs.racket-lang.org/afl/index.html)                 | `(map #λ(+ % 1) (list 1 2 3))`    | `%1`, `%2` etc.          | Yes: `#λ(+ (* 3 %) 1)`
+| [aful](https://docs.racket-lang.org/aful/index.html)               | `(map #λ(+ % 1) (list 1 2 3))`    | `%1`, `%2` etc.          | Yes: `#λ(+ (* 3 %) 1)`
+| [fancy-app](https://docs.racket-lang.org/fancy-app/index.html)     | `(map (+ _ 1) (list 1 2 3))`      | `_`, `_` in same order   | No.
+| [curly-fn](https://docs.racket-lang.org/curly-fn/index.html)       | `(map #{+ % 1} (list 1 2 3))`     | `%1`, `%2` etc.          | Yes: `#{+ (* 3 %) 1}`
+| [rackjure](https://docs.racket-lang.org/rackjure/index.html)       | `(map #λ(+ % 1) (list 1 2 3))`    | `%1`, `%2` etc.          | Yes: `#λ(+ (* 3 %) 1)`
+| [srfi/26](https://docs.racket-lang.org/srfi/srfi-std/srfi-26.html) | `(map (cut + <> 1) (list 1 2 3))` | `<>`, `<>` in same order | No.
 
